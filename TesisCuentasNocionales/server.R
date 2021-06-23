@@ -136,4 +136,17 @@ shinyServer(function(input, output) {
         }
         })
     
+    output$cuantia_nocional_PIB <- renderText({
+        valor_pension <- 0
+        cuantia <- 0
+        cuantia <- cuantia_pib(input$edad_inicio_3, input$edad_jubilacion_3, input$tasa_cotizacion_3)
+        
+        if(input$genero_3 == "Femenino"){
+            cuantia
+        }
+        else{
+            cuantia
+        }
+    })
+    
 })

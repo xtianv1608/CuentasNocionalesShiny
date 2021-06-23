@@ -120,6 +120,40 @@ shinyUI(fluidPage(
                  
                  textOutput("cuantia_sis_nocional_sis_2")
                     )
-        )
+        ),
+        
+        tabPanel("Tercer Caso",
+                 h4("Se utiliza el PIB nominal como tanto nocional"),
+                 
+                 selectInput("genero_3",
+                             label = "Genero",
+                             choices = c("Femenino",
+                                         "Masculino")
+                             ),
+                 numericInput("edad_inicio_3",
+                              label = "Edad entrada mercado laboral",
+                              value = 18,
+                              min = 14,
+                              max = 100
+                              ),
+                 numericInput("edad_jubilacion_3",
+                              label = "Edad de jubilacion",
+                              value = 65,
+                              min = 50,
+                              max = 75
+                              ),
+                 numericInput("tasa_cotizacion_3",
+                              label = "Tasa de cotizacion",
+                              value = 0.1046,
+                              min = 0,
+                              max = 1),
+                 submitButton("Calcular"),
+                 
+                 mainPanel(
+                     textOutput("cuantia_nocional_PIB")
+                 )
+                 
+                 
+                 )
 ))
 )

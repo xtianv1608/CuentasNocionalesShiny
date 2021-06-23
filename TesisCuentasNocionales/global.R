@@ -6,6 +6,8 @@ library(lifecontingencies)
 #data_afiliados <- read_xlsx("Datos/Distribucion_Afiliados.xlsx",
  #                          sheet = "2018")
 
+#pib_nominal <- read_xlsx("Datos/PIB_NOMINAL.xlsx")
+
 # Data para las probabilidades de muerte segun el genero
 #femenino <- read_xlsx("Datos/Tabla_Mortalidad_Ecuador.xlsx",
  #                     sheet = "Probs_Mujeres")
@@ -115,3 +117,33 @@ cuantia_cuentas_nocionales <- function(edad_inicio, edad_jubilacion, tipo_cotiza
   return(as.numeric(K))
 }
 
+## Funcion para obtener la cuantia de cuentas nocionales utilizando el pib como tanto nocional
+cuantia_pib <- function(edad_inicio, edad_jubilacion, tipo_cotizacion){
+  datos <- data_afiliados %>% 
+    dplyr::filter(Edad >= edad_inicio, Edad < edad_jubilacion) %>% 
+    select(Número, Promedio_Sueldo) %>% 
+    mutate(base_salario = Promedio_Sueldo*12*tipo_cotizacion)
+  
+  anio_actual <-  as.numeric(year(today()))
+  anio_inicio_trabajo <- anio_actual - (edad_jubilacion - edad_inicio)
+  
+  datos_pib <- pib_nominal %>% 
+    dplyr::filter(año >= anio_inicio_trabajo) %>% 
+    select(pib)
+  
+  datos$tanto_nocional <- 0
+  diferencia <- edad_jubilacion - edad_inicio
+  for (i in 1:diferencia) {
+    aux <- 1
+    for (j in 1:diferencia) {
+      aux <- aux*(1 + datos_pib[j, "pib"]*0.01)
+    }
+    datos[i, "tanto_nocional"] <- aux
+  }
+  
+  K <- datos %>% 
+    mutate(K = base_salario*tanto_nocional) %>% 
+    summarise(sum(K))
+  
+  return(as.numeric(K))
+}
