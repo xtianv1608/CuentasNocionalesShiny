@@ -4,6 +4,7 @@ library(tidyr)
 library(readxl)
 
 shinyUI(fluidPage(
+    theme = bslib::bs_theme(bootswatch = "darkly"),
     
     titlePanel("Escuela Politecnica Nacional"),
     h3("Ingenieria Matematica"),
@@ -13,7 +14,6 @@ shinyUI(fluidPage(
     h4("Calculadora de pensiones"),
     
     tabsetPanel(
-        
         tabPanel("Primer caso",
                  h4("Se supone que el individuo gana el mismo salario durante toda su vida laboral"),
                  
@@ -23,18 +23,21 @@ shinyUI(fluidPage(
                                          "Masculino")
                  ),
                  
-                 numericInput("imposiciones",
-                              label = "Numero de imposiciones",
-                              value = 480,
-                              min = 0,
-                              max = 600
-                 ),
+                 dateInput("fecha_nacimiento_1",
+                           label = "Fecha de nacimiento",
+                           value = today() - 360*25,
+                           language = "es",
+                           format = "dd/mm/yyyy"
+                           ),
                  
-                 numericInput("edad_inicio_1",
-                              label = "Edad entrada mercado laboral ",
-                              value = 23,
-                              min = 14,
-                              max = 100
+                 
+                 dateInput("fecha_inicio_1",
+                           label = "Fecha entrada mercado laboral ",
+                           value = today(),
+                           min = today(),
+                           language = "es",
+                           format = "dd/mm/yyyy"
+                           
                  ),
                  
                  numericInput("edad_jubilacion_1",
@@ -46,114 +49,33 @@ shinyUI(fluidPage(
                  
                  numericInput("salario",
                               label = "Salario",
-                              value = 0,
+                              value = SBU,
                               min = 0,
                               max = 100000
                  ),
                  
-                 numericInput("tipo_cotizacion_1",
-                              label = "Tipo de cotizacion",
-                              value = 0.1046,
-                              min = 0,
-                              max = 1),
                  
-                 numericInput("tanto_nocional_1",
+                 sliderInput("tanto_nocional_1",
                               label = "Tanto nocional",
-                              value = 0.02,
+                              value = 0.01,
                               min = 0,
-                              max = 5),
+                              max = 0.02,
+                             step = 0.005),
                  
                  submitButton("Calcular"),
                  
                  
                  mainPanel(
                  
-                 textOutput("cuantia_1_sis_act"),
+                 plotOutput("plot_cuantias"),
+                 textOutput("cuantia_1_nocionales")
                  
-                 textOutput("cuantia_sis_nocional_sis_1")
+                 #textOutput("cuantia_sis_nocional_sis_1")
                  
                  )
-                 
-                 ),
         
-        tabPanel("Segundo caso",
-                 
-                 h4("Los datos de los salarios se extraen de una base de datos"),
-                 
-                 selectInput("genero",
-                             label = "Genero",
-                             choices = c("Femenino",
-                                         "Masculino")
-                 ),
-                 
-                 numericInput("edad_inicio",
-                              label = "Edad entrada mercado laboral ",
-                              value = 23,
-                              min = 14,
-                              max = 100
-                 ),
-                 
-                 numericInput("edad_jubilacion",
-                              label = "Edad de jubilacion",
-                              value = 61,
-                              min = 50,
-                              max = 100
-                 ),
-                 
-                 numericInput("tipo_cotizacion",
-                              label = "Tipo de cotizacion",
-                              value = 0.1046,
-                              min = 0,
-                              max = 1),
-                 
-                 numericInput("tanto_nocional",
-                              label = "Tanto nocional",
-                              value = 0.02,
-                              min = 0,
-                              max = 5),
-                 
-                 submitButton("Calcular"),
-                 
-                 mainPanel(
-                 
-                 textOutput("cuantia_2_sis_act"),
-                 
-                 textOutput("cuantia_sis_nocional_sis_2")
-                    )
-        ),
-        
-        tabPanel("Tercer Caso",
-                 h4("Se utiliza el PIB nominal como tanto nocional"),
-                 
-                 selectInput("genero_3",
-                             label = "Genero",
-                             choices = c("Femenino",
-                                         "Masculino")
-                             ),
-                 numericInput("edad_inicio_3",
-                              label = "Edad entrada mercado laboral",
-                              value = 18,
-                              min = 14,
-                              max = 100
-                              ),
-                 numericInput("edad_jubilacion_3",
-                              label = "Edad de jubilacion",
-                              value = 65,
-                              min = 50,
-                              max = 75
-                              ),
-                 numericInput("tasa_cotizacion_3",
-                              label = "Tasa de cotizacion",
-                              value = 0.1046,
-                              min = 0,
-                              max = 1),
-                 submitButton("Calcular"),
-                 
-                 mainPanel(
-                     textOutput("cuantia_nocional_PIB")
-                 )
-                 
                  
                  )
-))
+)
+)
 )

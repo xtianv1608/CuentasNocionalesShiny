@@ -1,5 +1,6 @@
 library(readxl)
 library(lifecontingencies)
+library(data.table)
 
 #data_coeficiente <- read_xlsx("Datos/Coeficientes_Sis_Actual.xlsx")
 #data_coeficiente_min_max <- read_xlsx("Datos/Coeficientes_PensionMinMax.xlsx")
@@ -22,6 +23,9 @@ library(lifecontingencies)
 
 
 SBU <- 400
+tipo_cotizacion <- 0.1046
+crecimiento_salario <- 0.0215
+crecimiento_pib <- 0.01675
 inf_actuarial <- 95
 
 #### FUNCIONES ####
@@ -50,6 +54,155 @@ maximo <- function(imposiciones){
     select(Coef_Maximo)
   as.numeric(coefi)
 }
+
+
+salarios <- function(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion){
+  meses_faltantes_anio_1 <- 12 - month(fecha_inicio)
+  salarios <- data.table()
+  salarios <- data.table(salarios_anuales = salario*meses_faltantes_anio_1)
+  
+  anio_inicio <- year(fecha_inicio)
+  anio_nacimiento <- year(fecha_nacimiento)
+  anio_jubilacion <- anio_nacimiento + edad_jubilacion
+  dif_anios <- anio_jubilacion - anio_inicio
+  
+  for (i in 1:(dif_anios - 1)) {
+    salarios <- rbind(salarios, data.table(salarios_anuales = 12*salario*(1 + crecimiento_salario)^i))
+  }
+  
+  meses_antes_de_la_jubilacion <- month(fecha_nacimiento) - 1
+  salarios <- 
+    rbind(salarios, data.table(salarios_anuales = 
+                                 meses_antes_de_la_jubilacion*salario*(1 + crecimiento_salario)^dif_anios))
+  
+  return(salarios)
+}
+
+salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 30)
+
+salarios_2 <- function(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion){
+  meses_faltantes_anio1 <- 12 - month(fecha_inicio)
+  anio_inicio <- year(fecha_inicio)
+  salarios <- data.table()
+  salarios <- data.table(anio = rep(anio_inicio, meses_faltantes_anio1),
+                         salario_mensual = salario)
+  
+  anio_nacimiento <- year(fecha_nacimiento)
+  anio_jubilacion <- anio_nacimiento + edad_jubilacion
+  dif_anios <- anio_jubilacion - anio_inicio
+  
+  for (i in 1:(dif_anios - 1)) {
+    salarios <- rbind(salarios, data.table(anio = rep(anio_inicio + i, 12),
+                           salario_mensual = salario*(1 + crecimiento_salario)^i))
+  }
+  
+  meses_faltantes_final <- month(fecha_nacimiento) - 1
+  salarios <- rbind(salarios, data.table(anio = rep(anio_jubilacion, meses_faltantes_final),
+                         salario_mensual = salario*(1 + crecimiento_salario)^dif_anios))
+  
+  return(salarios)
+}
+
+#a <- salarios_2(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 30)
+
+cuantia_sistema_actual <- function(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion){
+  salarios_sis_act <- salarios_2(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion)
+  mejores_salarios <- data.table()
+  aux <- floor(salarios_sis_act[ , .N]/12)
+  for (i in 1 : aux) {
+    mejores_salarios <- rbind(mejores_salarios, 
+                              data.table(
+                                salario = prod(salarios_sis_act[c((12*(i-1)+1):(12*i)), 
+                                                               salario_mensual])))
+  }
+  
+  aux_2 <- salarios_sis_act[ , .N]%%12
+  
+  mejores_salarios <- rbind(mejores_salarios,
+                            data.table(
+                              salario = prod(salarios_sis_act[
+                                c((salarios_sis_act[,.N]-aux_2+1):salarios_sis_act[,.N]), 
+                                salario_mensual])))
+  
+  mejores_salarios <- mejores_salarios[with(mejores_salarios, order(mejores_salarios$salario, 
+                                                                    decreasing = T)), ]
+  
+  mejores_salarios <-  mejores_salarios[1:5]
+  
+  salario_afiliado <- prod(mejores_salarios$salario)^(1/60)
+  
+  imposiciones <- floor(salarios_sis_act[,.N]/12)
+  indice <- which(data_coeficiente$Numero_Impo == imposiciones)
+  
+  coeficiente <- data_coeficiente$Coeficiente[indice]
+  
+  salario_afiliado <- salario_afiliado*coeficiente
+  
+  return(round(as.numeric(salario_afiliado), 2))
+}
+
+#cuantia_sistema_actual(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 70)
+
+a <- salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 39)
+
+capital_nocional <- function(genero, edad_inicio, edad_jubilacion, sueldos, tanto_nocional){
+  sueldos[ , (c("incr_anual", "incr_historico")) := 0]
+  aux <- edad_jubilacion - edad_inicio + 1
+  
+  for (i in 1:aux) {
+    sueldos[i, "incr_anual"] = 1 + tanto_nocional*(1 + crecimiento_pib)^(i - 1)
+  }
+  
+  for (i in 1:aux) {
+    sueldos[i, "incr_historico"] = prod(sueldos[c(i:sueldos[,.N]), "incr_anual"])
+  }
+  
+  sueldos <- sueldos %>% 
+    mutate(
+      sueldo_historico = salarios_anuales*tipo_cotizacion*incr_historico)
+  
+  K <- 0
+  K <- sueldos[, (k = sum(sueldo_historico))]
+  
+  cuantia <- 0
+  
+    if(genero == "Femenino"){
+     renta_vitalicia <- axn(tabla_femenino, x = edad_jubilacion, i = 0.04, m = 0, 
+                           k = 13, payment = "due")
+   cuantia <- K/renta_vitalicia
+  }
+  else{
+   renta_vitalicia <- axn(tabla_masculino, x = edad_jubilacion, i = 0.04, m = 0, 
+                         k = 13, payment = "due")
+  cuantia <- K/renta_vitalicia
+  }
+  
+  #return(K)
+  return(round(as.numeric(cuantia), 2))
+}
+
+a <- salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 39)
+capital_nocional("Femenino", 26, 39, a, 0.02)
+
+
+### Funcion para el grafico sis. actual vs nocional
+
+grafico_actual_nocional <- function(y){
+  grafico <- ggplot() +
+        aes(x = c("Cuantia Sistema Actual", "Cuantia Cuentas Nocionales"), 
+            y, 
+            fill = c("Cuantia Sistema Actual", "Cuantia Cuentas Nocionales")) + 
+        geom_bar(position = "dodge", stat = "identity", show.legend = F) +
+        geom_text(aes(label = y) , vjust = -0.3, color = "black", size = 5,
+                  position = position_dodge(0.9)) +
+        labs(title = "Comparacion del valor de las cuantias",
+              subtitle = "Sistema Actual vs Cuentas Nocionlale",
+              x = "", y = "Cuantia ($)") +
+        scale_fill_manual("Legend", values = c("springgreen4", "steelblue4"))
+  
+  return(grafico)
+}
+
 
 ## Extraer los datos de la base para el calculo de la cuantia con distribucion de afiliados
 salario_base_con_data <- function(edad_inicio, edad_jubilacion){
