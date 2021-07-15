@@ -145,7 +145,10 @@ cuantia_sistema_actual <- function(salario, fecha_nacimiento, fecha_inicio, edad
 
 a <- salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 39)
 
-capital_nocional <- function(genero, edad_inicio, edad_jubilacion, sueldos, tanto_nocional){
+capital_nocional <- function(genero, fecha_nacimiento, fecha_inicio, edad_jubilacion, 
+                             salario, tanto_nocional){
+  edad_inicio <- floor(age_calc(fecha_nacimiento, fecha_inicio, units = "years"))
+  sueldos <- salarios(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion)
   sueldos[ , (c("incr_anual", "incr_historico")) := 0]
   aux <- edad_jubilacion - edad_inicio + 1
   
@@ -203,6 +206,27 @@ grafico_actual_nocional <- function(y){
   return(grafico)
 }
 
+#### Funcion para realizar tabla de las cuantia con cuentas nocionales
+
+tabla_nocional <- function(genero, fecha_nacimiento, fecha_inicio, edad_jubilacion, 
+                           salario, tanto_nocional){
+  aux1 <- edad_jubilacion - 4
+  aux2 <- edad_jubilacion + 4
+  
+  tabla <- data.table()
+  for (i in aux1:aux2) {
+    fondo_nocional <- 0
+    fondo_nocional <- capital_nocional(genero, fecha_nacimiento, fecha_inicio, i,
+                                       salario, tanto_nocional)
+    tabla <- rbind(tabla,
+                   data.table(
+                     Anio = i,
+                     Cuantia_Nocional = fondo_nocional
+                   ))
+  }
+  return(tabla)
+}
+tabla_nocional("Femenino", as.Date("1995-07-01"), as.Date("2021-09-09"), 65, 400, 0.02)
 
 ## Extraer los datos de la base para el calculo de la cuantia con distribucion de afiliados
 salario_base_con_data <- function(edad_inicio, edad_jubilacion){

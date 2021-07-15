@@ -68,7 +68,8 @@ shinyUI(fluidPage(
                  mainPanel(
                  
                  plotOutput("plot_cuantias"),
-                 textOutput("cuantia_1_nocionales")
+                 textOutput("cuantia_1_nocionales"),
+                 dataTableOutput("table_comparacion_nocional")
                  
                  #textOutput("cuantia_sis_nocional_sis_1")
                  
