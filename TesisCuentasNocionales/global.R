@@ -2,6 +2,7 @@ library(readxl)
 library(lifecontingencies)
 library(data.table)
 
+
 #data_coeficiente <- read_xlsx("Datos/Coeficientes_Sis_Actual.xlsx")
 #data_coeficiente_min_max <- read_xlsx("Datos/Coeficientes_PensionMinMax.xlsx")
 #data_afiliados <- read_xlsx("Datos/Distribucion_Afiliados.xlsx",
@@ -11,9 +12,9 @@ library(data.table)
 
 # Data para las probabilidades de muerte segun el genero
 #femenino <- read_xlsx("Datos/Tabla_Mortalidad_Ecuador.xlsx",
- #                     sheet = "Probs_Mujeres")
+ #                     sheet = "Probs_Hombres")
 #masculino <- read_xlsx("Datos/Tabla_Mortalidad_Ecuador.xlsx",
- #                      sheet = "Probs_Hombres")
+ #                      sheet = "Probs_Mujeres")
 
 # se transforman las probabilidades q_x a formato lifecontingencies
 #tabla_femenino <- probs2lifetable(femenino$q_2021, radix = 100000, type = "qx",
@@ -21,10 +22,11 @@ library(data.table)
 #tabla_masculino <- probs2lifetable(masculino$q_2021, radix = 100000, type = "qx",
  #                                  name = "Probabilidad Masculino")
 
-
-SBU <- 400
+#axn(tabla_femenino, x = 18, i = 0.06572, m = 0,payment = "due")
+#axn(tabla_femenino, x = 16, i = 0.06572, m = 0,payment = "due", k = 12)
+#SBU <- 400
 tipo_cotizacion <- 0.1046
-crecimiento_salario <- 0.0215
+crecimiento_salario <- 0.02154
 crecimiento_pib <- 0.01675
 inf_actuarial <- 95
 
@@ -103,7 +105,29 @@ salarios_2 <- function(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion)
   return(salarios)
 }
 
-#a <- salarios_2(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 30)
+a <- salarios_2(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 30)
+
+salario_al_jubilarse <- function(salarios2, fecha_nacimiento, edad_jubilacion){
+  anio_nacimiento <- year(fecha_nacimiento)
+  anio_jubilacion <- anio_nacimiento + edad_jubilacion
+  
+  if(month(fecha_nacimiento) == 1){
+    aux <- salarios2 %>% 
+      dplyr::filter(anio == (anio_jubilacion - 1)) %>% 
+      select(salario_mensual)
+    salario_antes_de_jubilarse <- aux[1,1]
+  }
+  else{
+    aux <- salarios2 %>% 
+      dplyr::filter(anio == anio_jubilacion) %>% 
+      select(salario_mensual)
+    salario_antes_de_jubilarse <- aux[1,1]
+  }
+  return(round(as.numeric(salario_antes_de_jubilarse), 2))
+}
+
+a <- salarios_2(800, as.Date("1995-07-01"), as.Date("2021-07-27"), 66)
+salario_al_jubilarse(a, as.Date("1996-07-01"), 65)
 
 cuantia_sistema_actual <- function(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion){
   salarios_sis_act <- salarios_2(salario, fecha_nacimiento, fecha_inicio, edad_jubilacion)
@@ -130,6 +154,7 @@ cuantia_sistema_actual <- function(salario, fecha_nacimiento, fecha_inicio, edad
   mejores_salarios <-  mejores_salarios[1:5]
   
   salario_afiliado <- prod(mejores_salarios$salario)^(1/60)
+  #salario_afiliado <- prod(mejores_salarios$salario)
   
   imposiciones <- floor(salarios_sis_act[,.N]/12)
   indice <- which(data_coeficiente$Numero_Impo == imposiciones)
@@ -139,11 +164,30 @@ cuantia_sistema_actual <- function(salario, fecha_nacimiento, fecha_inicio, edad
   salario_afiliado <- salario_afiliado*coeficiente
   
   return(round(as.numeric(salario_afiliado), 2))
+  #return(mejores_salarios)
 }
 
-#cuantia_sistema_actual(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 70)
+a <- cuantia_sistema_actual(800, as.Date("1995-07-01"), as.Date("2021-07-27"), 66)
 
 a <- salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 39)
+
+
+salario_basico <- function(fecha_nacimiento, fecha_inicio, edad_jubilacion){
+  salario_basico_unificado <- 400
+  anio_nacimiento <- year(fecha_nacimiento)
+  anio_inicio <- year(fecha_inicio)
+  anio_jubilacion <- anio_nacimiento + edad_jubilacion
+  anios_laboral <- anio_jubilacion - anio_inicio
+  
+  if(month(fecha_nacimiento) == 12)
+    salario_basico_unificado_futuro <- salario_basico_unificado*(1 + 0.02534)^(anios_laboral + 1)
+  else
+    salario_basico_unificado_futuro <- salario_basico_unificado*(1 + 0.02534)^(anios_laboral)
+  
+  return(round(salario_basico_unificado_futuro, 2))
+}
+
+salario_basico(as.Date("1997-12-19"), as.Date("2021-08-01"), 28)
 
 capital_nocional <- function(genero, fecha_nacimiento, fecha_inicio, edad_jubilacion, 
                              salario, tanto_nocional){
@@ -168,33 +212,61 @@ capital_nocional <- function(genero, fecha_nacimiento, fecha_inicio, edad_jubila
   K <- sueldos[, (k = sum(sueldo_historico))]
   
   cuantia <- 0
+  salario_basico <- salario_basico(fecha_nacimiento, fecha_inicio, edad_jubilacion)
   
     if(genero == "Femenino"){
-     renta_vitalicia <- axn(tabla_femenino, x = edad_jubilacion, i = 0.04, m = 0, 
-                           k = 13, payment = "due")
-   cuantia <- K/renta_vitalicia
+     renta_vitalicia <- 12*axn(tabla_femenino, x = edad_jubilacion, i = 0.0625, m = 0, 
+                           k = 12, payment = "due") + axn(tabla_femenino, x = edad_jubilacion, 
+                                                          i = 0.0625, m = 0, payment = "due")
+  
+      cuantia <- (K - salario_basico*axn(tabla_femenino, x = edad_jubilacion, i = 0.0625, m = 0,
+                                         payment = "due"))/renta_vitalicia
   }
   else{
-   renta_vitalicia <- axn(tabla_masculino, x = edad_jubilacion, i = 0.04, m = 0, 
-                         k = 13, payment = "due")
-  cuantia <- K/renta_vitalicia
+   renta_vitalicia <- 12*axn(tabla_masculino, x = edad_jubilacion, i = 0.0625, m = 0, 
+                         k = 12, payment = "due") + axn(tabla_masculino, x = edad_jubilacion, 
+                                                        i = 0.0625, m = 0, payment = "due")
+   
+   cuantia <- (K - salario_basico*axn(tabla_masculino, x = edad_jubilacion, i = 0.0625, m = 0,
+                                      payment = "due"))/renta_vitalicia
+    
   }
-  
   #return(K)
   return(round(as.numeric(cuantia), 2))
 }
 
-a <- salarios(100, as.Date("1995-07-01"), as.Date("2021-09-07"), 39)
-capital_nocional("Femenino", 26, 39, a, 0.02)
 
+
+a <- salarios(800, as.Date("1995-07-01"), as.Date("2021-07-27"), 66)
+capital_nocional("Femenino", as.Date("1995-07-01"), as.Date("2021-07-27"), 66, 800,0.05)
+
+#### Funcion para hallar la edad y pension minima ####
+pension_edad_minima <- function(genero, fecha_nacimiento, fecha_inicio, 
+                                salario, tanto_nocional){
+  edad <- floor(age_calc(fecha_nacimiento, fecha_inicio, units = "years"))
+  sbu <- salario_basico(fecha_nacimiento, fecha_inicio, edad)
+  salario_minimo <- 0
+  
+  while (salario_minimo < sbu) {
+    edad <- edad + 1
+    salario_minimo <- capital_nocional(genero, fecha_nacimiento, fecha_inicio, edad,
+                                         salario, tanto_nocional)
+    sbu <- salario_basico(fecha_nacimiento, fecha_inicio, edad)
+  }
+  return(c(edad, salario_minimo))
+}
+
+pension_edad_minima("femenino", as.Date("1995-07-01"), as.Date("2021-07-27"), 800,0.05)
+salario_basico(as.Date("1995-07-01"), as.Date("2021-07-27"), 58)
+capital_nocional("femenino", as.Date("1995-07-01"), as.Date("2021-07-27"), 58, 800,0.05)
 
 ### Funcion para el grafico sis. actual vs nocional
 
 grafico_actual_nocional <- function(y){
   grafico <- ggplot() +
-        aes(x = c("Cuantia Sistema Actual", "Cuantia Cuentas Nocionales"), 
+        aes(x = c("Cuantia Sistema Actual", "Cuantia Sistema Cuentas Nocionales"), 
             y, 
-            fill = c("Cuantia Sistema Actual", "Cuantia Cuentas Nocionales")) + 
+            fill = c("Cuantia Sistema Actual", "Cuantia Sistema Cuentas Nocionales")) + 
         geom_bar(position = "dodge", stat = "identity", show.legend = F) +
         geom_text(aes(label = y) , vjust = -0.3, color = "black", size = 5,
                   position = position_dodge(0.9)) +
@@ -324,3 +396,10 @@ cuantia_pib <- function(edad_inicio, edad_jubilacion, tipo_cotizacion){
   
   return(as.numeric(K))
 }
+
+
+12*axn(tabla_femenino, x = 65, i = 0.0625, k=12,  payment = "due")
+12*axn(tabla_femenino, x = 65, i = 0.0625, m = 0, 
+                      k = 12, payment = "due")
+axn(tabla_femenino, x = 65, i = 0.0625, m = 0, 
+     payment = "due")

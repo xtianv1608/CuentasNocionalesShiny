@@ -49,7 +49,7 @@ shinyUI(fluidPage(
                  
                  numericInput("salario",
                               label = "Salario",
-                              value = SBU,
+                              value = 400,
                               min = 0,
                               max = 100000
                  ),
@@ -59,7 +59,7 @@ shinyUI(fluidPage(
                               label = "Tanto nocional",
                               value = 0.01,
                               min = 0,
-                              max = 0.02,
+                              max = 0.1,
                              step = 0.005),
                  
                  submitButton("Calcular"),
@@ -68,7 +68,7 @@ shinyUI(fluidPage(
                  mainPanel(
                  
                  plotOutput("plot_cuantias"),
-                 textOutput("cuantia_1_nocionales"),
+                 textOutput("edad_cuantia_minima"),
                  dataTableOutput("table_comparacion_nocional")
                  
                  #textOutput("cuantia_sis_nocional_sis_1")
